@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {computed,onMounted,ref} from 'vue';
 type Bin={bin:string;count:number;predicted_rate:number;observed_rate:number};
-type Run={id:number;version:string;status:string;created_at:string;metrics:{source_backtest_id:number;training_trades:number;holdout_trades:number;train_win_rate:number;holdout_win_rate:number;brier_score:number;baseline_brier_score:number;calibration_bins:Bin[];limitations:string[]}};
+type Run={id:number;version:string;status:string;created_at:string;metrics:{source_backtest_id:number;training_trades:number;holdout_trades:number;train_win_rate:number;holdout_win_rate:number;brier_score:number;baseline_brier_score:number;calibration_bins:Bin[];limitations:string[];independent_validation?:{trade_count:number;brier_score:number;baseline_brier_score:number;calibration_mae:number;passed:boolean;criteria:Record<string,boolean>;data_start:string;data_end:string};review_history?:{action:string;at:string;scope:string}[]}};
 const runs=ref<Run[]>([]),loading=ref(false),error=ref(''),selected=ref<number|null>(null);
 const current=computed(()=>runs.value.find(r=>r.id===selected.value)??runs.value[0]);
 const percent=(n:number|undefined)=>n==null?'—':(n*100).toFixed(1)+'%';
@@ -11,7 +11,7 @@ onMounted(()=>void refresh());
 <template>
 <section class="panel prediction-lab">
  <div class="panelhead"><div><div class="eyebrow">MILESTONE 5 / OFFLINE MODEL RESEARCH</div><h3>Prediction lab</h3><p class="chart-note">Historical, observation-only probability estimates for profitable closed trades</p></div><button class="chart-refresh" type="button" :disabled="loading" @click="refresh">{{loading?'Loading…':'Refresh'}}</button></div>
- <p class="risk-banner">No model is approved. Predictions cannot place orders, override risk limits or change the deployed breakout strategy.</p>
+ <p class="risk-banner">Model review applies only to paper observation. Even approved models cannot place orders, override risk limits or change the deployed breakout strategy.</p>
  <p v-if="error" class="warning" role="alert">{{error}}</p>
  <div v-if="!runs.length" class="backtest-empty">No trained research model yet. On Forge, run <code>php artisan astra:backtest</code>, then <code>php artisan astra:train-prediction</code>. At least 60 completed trades with valid entry indicators are required.</div>
  <template v-else>
@@ -21,6 +21,7 @@ onMounted(()=>void refresh());
   <div class="training-stat"><small>Unseen holdout trades</small><strong>{{current.metrics.holdout_trades}}</strong><small>Holdout win rate {{percent(current.metrics.holdout_win_rate)}}</small></div>
   <div class="training-stat"><small>Holdout Brier score</small><strong>{{current.metrics.brier_score.toFixed(4)}}</strong><small>Training-prior baseline: {{current.metrics.baseline_brier_score.toFixed(4)}} · lower is better</small></div>
  </div>
+ <section v-if="current" class="training-run" style="margin:18px 0"><div class="training-run-head"><h3>Independent validation</h3><strong>{{current.status==='paper_approved'?'Paper observation approved':current.status==='revoked'?'Revoked':'Observation only'}}</strong></div><template v-if="current.metrics.independent_validation"><p class="training-note">{{current.metrics.independent_validation.data_start}} → {{current.metrics.independent_validation.data_end}} · {{current.metrics.independent_validation.trade_count}} later trades</p><div class="training-grid"><div class="training-stat"><small>Frozen-model Brier</small><strong>{{current.metrics.independent_validation.brier_score.toFixed(4)}}</strong></div><div class="training-stat"><small>Frozen-prior baseline</small><strong>{{current.metrics.independent_validation.baseline_brier_score.toFixed(4)}}</strong></div><div class="training-stat"><small>Calibration error</small><strong>{{percent(current.metrics.independent_validation.calibration_mae)}}</strong></div></div><p v-for="(passed,name) in current.metrics.independent_validation.criteria" :key="name" class="training-note">{{passed?'✓':'✕'}} {{String(name).replaceAll('_',' ')}}</p></template><p v-else class="training-note">No separate later-dataset validation has been recorded. The initial holdout alone cannot authorize model approval.</p><p class="training-note">Operator review uses Forge CLI; no public approval endpoint exists.</p></section>
  <h3>Holdout calibration</h3><p class="training-note">Predicted versus observed profitable-trade frequency in occupied probability bins. Sparse bins are not reliable evidence of calibration.</p>
  <div v-if="current" class="prediction-bins"><div v-for="bin in current.metrics.calibration_bins" :key="bin.bin" class="prediction-bin"><div class="training-run-head"><strong>Predicted {{percent(bin.predicted_rate)}}</strong><small>{{bin.count}} holdout trades</small></div><div class="prediction-track"><div :style="{width:Math.min(100,bin.predicted_rate*100)+'%'}"></div></div><div class="prediction-track observed"><div :style="{width:Math.min(100,bin.observed_rate*100)+'%'}"></div></div><small>Observed: {{percent(bin.observed_rate)}}</small></div></div>
  <p class="training-note">Mint: predicted probability · Purple: observed outcome rate</p>
