@@ -8,12 +8,13 @@ final class HourlyBacktester {
     /** Closed-candle signal, earliest next-bar open fill. Ambiguous stop/target bars resolve against trader. */
     public function run(array $candles, float $initial=1000.0, float $feeRate=.001, float $slippageBps=5.0,array $parameters=[]): array {
         if ($initial<=0 || $feeRate<0 || $slippageBps<0) throw new InvalidArgumentException('Invalid assumptions');
-        $equity=$initial;$peak=$initial;$maxDd=0.0;$trades=[];$position=null;$curve=[];$entryDiagnostics=[];
+        $equity=$initial;$peak=$initial;$maxDd=0.0;$trades=[];$position=null;$curve=[];
         $count=count($candles);$slip=$slippageBps/10000;
         for($j=1;$j<$count;$j++) if ((int)$candles[$j]['open_ms']-(int)$candles[$j-1]['open_ms']!==3600000)
             throw new InvalidArgumentException('Non-continuous backtest history');
         for($i=200;$i<$count;$i++) {
             $bar=$candles[$i];
+            $occupiedAtOpen=$position!==null;
             if ($position) {
                 $position['bars']++;
                 $stopHit=(float)$bar['low']<=$position['stop'];$targetHit=(float)$bar['high']>=$position['target'];
@@ -31,7 +32,7 @@ final class HourlyBacktester {
                 }
             }
             // Use candles ending at i-1 to decide whether to enter at bar i open.
-            if (!$position && $i>200 && $equity>0) {
+            if (!$occupiedAtOpen && $i>200 && $equity>0) {
                 $window=array_slice($candles,max(0,$i-251),min(251,$i));
                 if (count($window)>=200) {
                     try {$f=$this->features->calculate($window);$signalBar=$candles[$i-1];$f['signal_range_atr']=((float)$signalBar['high']-(float)$signalBar['low'])/$f['atr14'];$signal=$this->strategy->signal($f,$parameters);}
@@ -46,6 +47,22 @@ final class HourlyBacktester {
                             'stop'=>$stop,'target'=>$entry+($signal['reward_risk']??2.0)*$signal['stop_distance'],'bars'=>0,
                             'entry_context'=>['signal_open_ms'=>$signalBar['open_ms'],'entry_open_ms'=>$bar['open_ms'],'rsi14'=>$f['rsi14'],'relative_volume'=>$f['relative_volume'],'atr14'=>$f['atr14'],'breakout_atr'=>($f['close']-$f['previous_20_high'])/$f['atr14'],'signal_range_atr'=>$f['signal_range_atr'],'ema_spread_atr'=>($f['ema20']-$f['ema50'])/$f['atr14']]];
                     }
+                }
+            }
+            // Entry-bar stop/target touches must be counted; never reenter on a bar already occupied.
+            if (!$occupiedAtOpen && $position!==null) {
+                $stopHit=(float)$bar['low']<=$position['stop'];
+                $targetHit=(float)$bar['high']>=$position['target'];
+                if ($stopHit || $targetHit) {
+                    $why=$stopHit?'stop':'target';
+                    $exit=$stopHit?min($position['stop'],(float)$bar['open'])*(1-$slip):$position['target']*(1-$slip);
+                    $gross=$position['quantity']*($exit-$position['entry']);
+                    $fees=$position['quantity']*($position['entry']+$exit)*$feeRate;
+                    $pnl=$gross-$fees;$equity+=$pnl;
+                    $trades[]=['entry_index'=>$position['index'],'exit_index'=>$i,'entry'=>$position['entry'],
+                        'exit'=>$exit,'quantity'=>$position['quantity'],'pnl'=>$pnl,'exit_reason'=>$why,
+                        'entry_context'=>$position['entry_context']];
+                    $position=null;$peak=max($peak,$equity);$maxDd=max($maxDd,1-$equity/$peak);
                 }
             }
             $curve[]=['index'=>$i,'realized_equity'=>$equity];
@@ -68,6 +85,7 @@ final class HourlyBacktester {
             'exit_breakdown'=>$exitStats,'gross_profit'=>$grossProfit,'gross_loss'=>$grossLoss,
             'profit_factor'=>$grossLoss>0?$grossProfit/$grossLoss:null,'annualized_hourly_realized_sharpe'=>$sharpe,
             'assumptions'=>['fee_rate'=>$feeRate,'slippage_bps'=>$slippageBps,'intrabar_ambiguity'=>'stop_first',
-                'fill'=>'next_hour_open','spread_history'=>'not_available','candidate_parameters'=>$parameters]];
+                'fill'=>'next_hour_open','entry_bar_stop_target'=>'evaluated_stop_first',
+                'same_bar_reentry'=>'prohibited','model_version'=>'ohlc-v2','spread_history'=>'not_available','candidate_parameters'=>$parameters]];
     }
 }
