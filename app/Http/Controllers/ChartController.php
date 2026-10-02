@@ -4,15 +4,25 @@ namespace App\Http\Controllers;
 use App\MarketData\HourlyFeatures;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 final class ChartController
 {
-    /** Completed candles only. Read-only, capped response for a one-hour research chart. */
-    public function __invoke(HourlyFeatures $features): JsonResponse
+    /** Read-only paged completed-candle history; includes warmup for point-in-time indicators. */
+    public function __invoke(Request $request, HourlyFeatures $features): JsonResponse
     {
-        $rows = DB::table('market_candles')->where('symbol', 'BTCUSDT')->where('interval', '1h')
-            ->orderByDesc('open_time')->limit(500)->get()->reverse()->values();
+        $before = $request->query('before');
+        $query = DB::table('market_candles')->where('symbol', 'BTCUSDT')->where('interval', '1h');
+        if ($before !== null) {
+            if (!ctype_digit((string) $before) || (int) $before < 1 || (int) $before > time() + 86400) {
+                return response()->json(['message' => 'Invalid before timestamp'], 422);
+            }
+            $query->where('open_time', '<', gmdate('Y-m-d H:i:s', (int) $before));
+        }
+        // 240 visible candles + 250 historical warmup + one for pagination.
+        $rows = $query->orderByDesc('open_time')->limit(491)->get()->reverse()->values();
+        $hasMore = $rows->count() > 240;
         $all = $rows->map(fn ($r) => [
             'open_ms' => CarbonImmutable::parse($r->open_time, 'UTC')->getTimestampMs(),
             'open' => (float) $r->open, 'high' => (float) $r->high,
@@ -20,14 +30,14 @@ final class ChartController
             'volume' => (float) $r->volume,
         ])->all();
         $points = [];
+        $first = max(0, count($all) - 240);
         foreach ($all as $i => $bar) {
-            if ($i < 199 || $i < count($all) - 240) continue;
+            if ($i < $first) continue;
             $window = array_slice($all, max(0, $i - 249), min(250, $i + 1));
             try {
                 $f = $features->calculate($window);
             } catch (\InvalidArgumentException $e) {
-                // A historical gap must not create misleading indicator lines.
-                $f = null;
+                $f = null; // Never bridge missing historical candles with synthetic indicators.
             }
             $points[] = [
                 'time' => gmdate('Y-m-d\TH:i:s\Z', intdiv($bar['open_ms'], 1000)),
@@ -59,7 +69,7 @@ final class ChartController
         return response()->json([
             'symbol' => 'BTCUSDT', 'interval' => '1h', 'source' => 'binance_spot_public',
             'live' => false, 'refresh_seconds' => 60, 'points' => $points,
-            'markers' => $markers, 'backtest_id' => $run?->id,
+            'has_more' => $hasMore, 'markers' => $markers, 'backtest_id' => $run?->id,
             'backtest_data_end' => $run?->data_end,
             'latest_candle_at' => count($points) ? end($points)['time'] : null,
             'execution_enabled' => false,

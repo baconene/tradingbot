@@ -20,17 +20,23 @@ final class ChartTest extends TestCase
     {
         $start = CarbonImmutable::parse('2025-01-01 00:00:00', 'UTC')->getTimestampMs();
         $rows = [];
-        for ($i = 0; $i < 230; $i++) {
+        for ($i = 0; $i < 510; $i++) {
             $ms = $start + $i * 3600000;
             $close = 100000 + $i * 10;
             $rows[] = [$ms, (string) ($close - 5), (string) ($close + 20),
                 (string) ($close - 20), (string) $close, '100',
                 $ms + 3599999, '10000', 100, '0', '0', '0'];
         }
-        app(CandleImporter::class)->import($rows, CarbonImmutable::createFromTimestampMs($start + 231 * 3600000, 'UTC'));
-        $response = $this->get('/api/chart')->assertOk()->assertJsonPath('execution_enabled', false);
-        $this->assertCount(31, $response->json('points'));
-        $this->assertNotNull($response->json('points.30.ema20'));
-        $this->assertNotNull($response->json('points.30.rsi14'));
+        app(CandleImporter::class)->import($rows, CarbonImmutable::createFromTimestampMs($start + 511 * 3600000, 'UTC'));
+        $response = $this->get('/api/chart')->assertOk()->assertJsonPath('execution_enabled', false)
+            ->assertJsonPath('has_more', true);
+        $this->assertCount(240, $response->json('points'));
+        $this->assertNotNull($response->json('points.239.ema20'));
+        $this->assertNotNull($response->json('points.239.rsi14'));
+        $older = $this->get('/api/chart?before='.intdiv($start + 270 * 3600000, 1000))
+            ->assertOk()->json('points');
+        $this->assertNotEmpty($older);
+        $this->assertLessThan($response->json('points.0.time'), end($older)['time']);
+        $this->get('/api/chart?before=not-a-date')->assertStatus(422);
     }
 }
