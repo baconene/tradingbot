@@ -39,3 +39,7 @@ Route::get('/api/portfolio', \App\Http\Controllers\PortfolioController::class);
 Route::get('/api/chart', \App\Http\Controllers\ChartController::class)->name('chart');
 
 Route::get('/api/research/backtests/export', \App\Http\Controllers\BacktestExportController::class)->middleware('throttle:30,1');
+
+// Explicit operator token required for research mutations; never accept anonymous retraining.
+Route::get('/api/research/training', [\App\Http\Controllers\ResearchTrainingController::class, 'index'])->middleware('throttle:30,1');
+Route::post('/api/research/training', [\App\Http\Controllers\ResearchTrainingController::class, 'store'])->middleware('throttle:3,1');
