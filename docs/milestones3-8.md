@@ -1,0 +1,21 @@
+# Milestones 3–8: implementation and acceptance status
+
+This package implements **offline research/risk components and schema scaffolding**, NOT a production-certified trading platform. A single generated archive cannot honestly complete real-world exchange, deployment, calibration, security, and 30-day paper observation gates.
+
+## M3 — Strategy and backtest (offline implementation; acceptance pending)
+`php artisan astra:backtest --start=2024-10-01` uses imported 1h production-market candles, prior completed candle signals, next-bar-open entry, stop-first conservative intrabar assumptions, fees and slippage, fixed-risk and notional caps. It persists the report and immutable input hash. Missing: representative 2+ years actual data where available, exchange filter-aware fills, real spread and slippage measurements, walk-forward validation, OOS t-stat/multiple-testing controls, Sharpe calculation, independent backtest review. Do not promote from this preliminary report.
+
+## M4 — Risk and execution (pure risk engine and order schema only)
+`RiskDecision` enforces 0.5% risk, 2% daily loss, 10% drawdown, 25% single notional, 50% exposure, two positions, 100 USDT manual approval, provided exchange min notional/step. Risk state defaults latched and unreconciled. `OrderStateMachine` prohibits blind retries of uncertain submissions. BinanceSpotTestnet intentionally rejects all submissions/cancels. Missing: authenticated Binance Testnet REST/websocket implementation, signed requests, dynamic exchange filters, durable atomic order transitions, reconciliation, partial-fill and cancel integration, protected exit management, kill-switch operational drills, independent shadow fills.
+
+## M5 — Prediction (governance interface only)
+`ProbabilityGate` rejects absent/mismatched/unapproved/invalid predictions. No trained or validated model is included; do not treat this as an AI signal. Python research adapter, calibrated OOS model, model registry approval workflow and outcomes evaluation remain pending.
+
+## M6 — Dashboard (read-only API scaffolding)
+`/api/research/backtests`, `/api/risk/status`, `/api/portfolio` are read-only. Vue M2 dashboard remains the default; authenticated live views, Reverb and Telegram alerts remain pending. Secure the site behind Forge access control until Laravel auth is implemented.
+
+## M7 — Tests (initial unit tests only)
+Run `php artisan test` after installing dependencies. No claim of integration tests passing. Need real DB/Redis integration, broker sandbox fault injection, race tests, security audit, disaster recovery and rollback rehearsals.
+
+## M8 — Forge (runbook only; no VPS access)
+See `docs/forge.md` and `docs/milestone8-operations.md`. Deploy only to a private research/staging site. Never set any variable to enable live trading; the adapter hard-rejects exchange submission. A minimum 30 calendar days of observed paper trading begins **only after** M3–M7 gates, a functioning reconciled testnet adapter and independent shadow portfolio have been verified. There is no claimed paper-performance result in this package.
