@@ -49,7 +49,7 @@ final class ChartController
                 'relativeVolume' => $f['relative_volume'] ?? null,
             ];
         }
-        $run = DB::table('backtest_runs')->where('strategy_version','!=','MBR-001-optimization-research')->orderByDesc('id')->first();
+        $run = DB::table('backtest_runs')->where('strategy_version',\App\Strategies\MomentumBreakout::VERSION)->orderByDesc('id')->first();
         $markers = [];
         if ($run) {
             $results = json_decode($run->results, true);

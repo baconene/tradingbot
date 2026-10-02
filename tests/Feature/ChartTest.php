@@ -4,6 +4,7 @@ namespace Tests\Feature;
 use App\MarketData\CandleImporter;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 final class ChartTest extends TestCase
@@ -39,4 +40,29 @@ final class ChartTest extends TestCase
         $this->assertLessThan($response->json('points.0.time'), end($older)['time']);
         $this->get('/api/chart?before=not-a-date')->assertStatus(422);
     }
+    public function test_research_reports_do_not_replace_standard_trade_ledger_or_chart_markers(): void
+    {
+        $now = now();
+        $base = ['data_start'=>'2025-01-01 00:00:00','data_end'=>'2025-01-15 00:00:00',
+            'data_hash'=>str_repeat('a',64),'created_at'=>$now,'updated_at'=>$now];
+        $standardId=DB::table('backtest_runs')->insertGetId($base+[
+            'strategy_version'=>\App\Strategies\MomentumBreakout::VERSION,
+            'results'=>json_encode(['trade_count'=>1,'trades'=>[[
+                'entry_index'=>201,'exit_index'=>203,'entry'=>100.0,'exit'=>104.0,
+                'pnl'=>3.0,'quantity'=>1.0,'exit_reason'=>'target'
+            ]]])
+        ]);
+        foreach(['MBR-001-optimization-research','MBR-001-walk-forward-research'] as $version){
+            DB::table('backtest_runs')->insert($base+[
+                'strategy_version'=>$version,'results'=>json_encode(['mode'=>'research_only','folds'=>[]])
+            ]);
+        }
+        $this->get('/api/research/backtests')->assertOk()
+            ->assertJsonPath('latest_backtest.id',$standardId)
+            ->assertJsonPath('latest_backtest.results.trade_count',1)
+            ->assertJsonCount(1,'latest_backtest.results.trades');
+        $this->get('/api/chart')->assertOk()->assertJsonPath('backtest_id',$standardId)
+            ->assertJsonCount(2,'markers');
+    }
+
 }
