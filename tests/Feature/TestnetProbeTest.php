@@ -22,8 +22,8 @@ final class TestnetProbeTest extends TestCase
         config()->set('astra.testnet_api_key', 'test-key');
         config()->set('astra.testnet_api_secret', 'test-secret');
         Http::fake([
-            'testnet.binance.vision/api/v3/time' => Http::response(['serverTime' => 1720000000000]),
-            'testnet.binance.vision/api/v3/account*' => Http::response([
+            '*testnet.binance.vision/api/v3/time' => Http::response(['serverTime' => 1720000000000]),
+            '*testnet.binance.vision/api/v3/account*' => Http::response([
                 'canTrade' => true, 'balances' => [['asset' => 'USDT', 'free' => '1000', 'locked' => '0']],
             ]),
         ]);
