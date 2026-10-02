@@ -46,3 +46,6 @@ Route::post('/api/research/training', [\App\Http\Controllers\ResearchTrainingCon
 
 // Public read-only-equivalent hypothetical calculation; never persists or submits an order.
 Route::post('/api/risk/shadow-evaluate', \App\Http\Controllers\ShadowRiskController::class)->middleware('throttle:20,1');
+
+// Observation-only historical model research; no inference or approval mutation endpoint.
+Route::get('/api/research/predictions', \App\Http\Controllers\PredictionResearchController::class)->middleware('throttle:30,1');
