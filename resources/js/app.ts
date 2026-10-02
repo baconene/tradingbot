@@ -5,12 +5,10 @@ import '../css/app.css';
 const pages = import.meta.glob<{ default: DefineComponent }>('./pages/**/*.vue');
 
 createInertiaApp({
-  resolve: (name) => {
-    const page = pages[`./pages/${name}.vue`];
-    if (!page) {
-      throw new Error(`Inertia page not found: ${name}`);
-    }
-    return page();
+  resolve: async (name) => {
+    const loader = pages[`./pages/${name}.vue`];
+    if (!loader) throw new Error(`Inertia page not found: ${name}`);
+    return (await loader()).default;
   },
   setup({ el, App, props, plugin }) {
     createApp({ render: () => h(App, props) }).use(plugin).mount(el);
