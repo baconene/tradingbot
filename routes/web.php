@@ -35,3 +35,5 @@ Route::get('/api/market-data', MarketDataController::class)->name('market-data')
 Route::get('/api/research/backtests', \App\Http\Controllers\ResearchController::class);
 Route::get('/api/risk/status', \App\Http\Controllers\RiskStatusController::class);
 Route::get('/api/portfolio', \App\Http\Controllers\PortfolioController::class);
+
+Route::get('/api/chart', \App\Http\Controllers\ChartController::class)->name('chart');
