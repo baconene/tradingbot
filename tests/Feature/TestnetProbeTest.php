@@ -16,6 +16,17 @@ final class TestnetProbeTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_region_restriction_is_reported_without_credentials_leaking(): void
+    {
+        config()->set('astra.testnet_api_key', 'test-key');
+        config()->set('astra.testnet_api_secret', 'test-secret');
+        Http::fake(['*testnet.binance.vision/api/v3/time' => Http::response(['msg' => 'restricted'], 451)]);
+        $result = app(TestnetAccountProbe::class)->check();
+        $this->assertSame('region_restricted', $result['reason']);
+        $this->assertSame(451, $result['http_status']);
+        Http::assertSentCount(1);
+    }
+
     public function test_read_only_signed_account_probe(): void
     {
         config()->set('astra.testnet_url', 'https://testnet.binance.vision');
