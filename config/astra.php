@@ -5,5 +5,8 @@ return [
     'market_data_url' => env('ASTRA_MARKET_DATA_URL', 'https://api.binance.com'),
     'market_data_delay_seconds' => (int) env('ASTRA_MARKET_DATA_DELAY_SECONDS', 5),
     'max_candle_age_seconds' => (int) env('ASTRA_MAX_CANDLE_AGE_SECONDS', 3900),
-    'execution_enabled' => false, // Intentionally hard-disabled through Milestone 2.
+    'testnet_url' => 'https://testnet.binance.vision',
+    'testnet_api_key' => env('BINANCE_TESTNET_API_KEY', ''),
+    'testnet_api_secret' => env('BINANCE_TESTNET_API_SECRET', ''),
+    'execution_enabled' => false, // Read-only testnet diagnostics; order submission is locked.
 ];
