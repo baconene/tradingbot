@@ -10,6 +10,7 @@ final class FoundationTest extends TestCase
 
     public function test_dashboard_renders(): void
     {
+        $this->withoutVite();
         $this->get('/')->assertOk();
     }
 

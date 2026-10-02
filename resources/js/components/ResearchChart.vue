@@ -39,8 +39,9 @@ function move(e:PointerEvent){const rect=(e.currentTarget as SVGElement).getBoun
 function up(){const nearLeft=end.value-count.value<15;drag.value=null;if(nearLeft&&hasMore.value)void older();}
 async function jump(marker:Marker){const at=points.value.findIndex(p=>p.time===marker.time);if(at>=0){end.value=Math.min(points.value.length,at+Math.floor(count.value/2));return;}await load(Math.floor(new Date(marker.time).getTime()/1000)+Math.floor(count.value/2)*3600,true);const index=points.value.findIndex(p=>p.time===marker.time);if(index>=0)end.value=Math.min(points.value.length,index+Math.floor(count.value/2));}
 function latestView(){end.value=points.value.length;hoverIndex.value=null;}
-onMounted(()=>{void load(undefined,true);timer=setInterval(()=>{if(!drag.value&&end.value===points.value.length)void load();},60000);});
-onUnmounted(()=>{if(timer)clearInterval(timer);});
+function onChartJump(event:Event){const time=(event as CustomEvent<string>).detail;if(time)void jump({time,kind:'entry',price:0,pnl:0});}
+onMounted(()=>{window.addEventListener('astra:chart-jump',onChartJump);void load(undefined,true);timer=setInterval(()=>{if(!drag.value&&end.value===points.value.length)void load();},60000);});
+onUnmounted(()=>{window.removeEventListener('astra:chart-jump',onChartJump);if(timer)clearInterval(timer);});
 </script>
 <template>
 <section class="panel astra-chart">
