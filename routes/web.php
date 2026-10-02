@@ -1,12 +1,34 @@
 <?php
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MarketDataController;
+
 Route::get('/', DashboardController::class)->name('dashboard');
-Route::get('/api/status', fn () => response()->json([
-    'project'=>'GPT Astra','mode'=>'paper','execution_enabled'=>false,
-    'exchange_connected'=>false,'kill_switch'=>'locked',
-]));
+Route::get('/api/status', function () {
+    $market = ['connected' => false, 'candles' => 0, 'latest_candle' => null, 'reason' => 'not_initialized'];
+    try {
+        $latest = DB::table('market_candles')->where('symbol', 'BTCUSDT')
+            ->where('interval', '1h')->orderByDesc('open_time')->first();
+        $market = [
+            'connected' => $latest !== null,
+            'candles' => DB::table('market_candles')->where('symbol', 'BTCUSDT')->where('interval', '1h')->count(),
+            'latest_candle' => $latest?->close_time,
+            'reason' => $latest ? 'data_imported' : 'no_candles_imported',
+        ];
+    } catch (\Throwable $e) {
+        $market['reason'] = 'database_unavailable_or_migrations_pending';
+    }
+    return response()->json([
+        'project' => 'GPT Astra',
+        'mode' => 'paper_research',
+        'execution_enabled' => false,
+        'exchange_connected' => false,
+        'kill_switch' => 'locked',
+        'market' => $market,
+        'next_steps' => $market['connected'] ? [] : ['php artisan migrate --force', 'php artisan astra:sync-candles --max-pages=2'],
+    ]);
+});
 Route::get('/api/market-data', MarketDataController::class)->name('market-data');
 
 // Read-only research endpoints. Never expose order mutation routes before authentication and certification.
