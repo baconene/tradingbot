@@ -15,7 +15,7 @@ final class ResearchTrainingController
             ->whereIn('strategy_version',['MBR-001-optimization-research','MBR-001-walk-forward-research'])
             ->orderByDesc('id')->limit(20)->get()
             ->map(fn($r)=>['id'=>$r->id,'kind'=>$r->strategy_version,'created_at'=>$r->created_at,
-                'data_start'=>$r->data_start,'data_end'=>$r->data_end,
+                'data_start'=>$r->data_start,'data_end'=>$r->data_end,'data_hash'=>$r->data_hash,
                 'results'=>json_decode($r->results,true)])->all();
         return response()->json(['mode'=>'research_only','execution_enabled'=>false,
             'training'=>Cache::get('astra:research:training:status',['state'=>'idle']),
