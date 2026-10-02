@@ -10,7 +10,9 @@ php artisan optimize:clear
 php artisan migrate --force
 php artisan astra:sync-candles --max-pages=2
 php artisan astra:backtest
-php artisan test
+# On a staging checkout with development dependencies installed:
+# composer install --no-interaction
+# ./vendor/bin/phpunit
 ```
 
 Initial backfill (after the short sync succeeds):
@@ -19,7 +21,7 @@ Initial backfill (after the short sync succeeds):
 php artisan astra:sync-candles --start=2024-10-01
 ```
 
-If public Binance market-data access is blocked by the VPS region, the sync command fails and the dashboard remains stale. Do not fabricate candles or use Testnet prices as production historical data. Use an approved accessible public-market-data endpoint if necessary.
+If Binance returns HTTP 451, its service is restricted for the server location. Stop requests rather than changing Binance hosts or using a proxy to evade eligibility restrictions. Obtain market data from a provider authorized for your server location and implement a separate, clearly labeled adapter; BTC/USD data from another venue must not be represented as Binance BTCUSDT or mixed silently with Binance candles. Testnet order access must be independently permitted and verified.
 
 ## 2. Configure Forge Scheduler
 Create one cron entry to run every minute:
@@ -47,10 +49,13 @@ php artisan optimize:clear
 php artisan astra:check-testnet
 ```
 
-The command queries Testnet server time and a signed **GET /api/v3/account**. It does not submit orders. If the result is `credentials_missing`, the Forge environment variables were not loaded. If it is `account_request_rejected`, verify the testnet credentials, testnet availability and outbound HTTPS connectivity. Check the VPS clock if timestamp errors occur.
+The command queries Testnet server time and a signed **GET /api/v3/account**. It does not submit orders. If the result is `credentials_missing`, the Forge environment variables were not loaded. `region_restricted` means stop Binance access and check eligibility; `invalid_credentials_or_signature` means verify Spot Testnet keys; `clock_or_timestamp_error` means synchronize the VPS clock; `connection_or_dns_failure` indicates network or DNS trouble. Never paste keys or full signed URLs into logs.
 
 ## 4. Public read-only diagnostics
 Visit `/up`, `/api/status`, and `/api/market-data`. The status endpoint reports the candle count and latest candle, but never credentials. The dashboard is only meaningful once migrations and the candle importer have succeeded.
 
 ## 5. Before simulated order execution
 Implement and verify durable risk state, manual approval, exchange filters, partial fills, order reconciliation, protective exits, testnet resets, independent shadow portfolio and failure drills. Trading must remain disabled until these gates are complete. Never interpret successful deployment or account connectivity as approval to place orders.
+
+## 6. Tests on Forge
+Production Forge deploys often run `composer install --no-dev`; PHPUnit and Laravel's `test` command may therefore be unavailable. Run tests on CI or a staging checkout with dev dependencies installed using `./vendor/bin/phpunit`. Do not install development dependencies on a public production server just to run tests.
