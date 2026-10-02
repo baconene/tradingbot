@@ -18,6 +18,6 @@ final class ResearchExportTest extends TestCase {
   $this->withToken('test-secret')->get('/api/research/backtests/export')
    ->assertOk()->assertJsonPath('execution_enabled',false)
    ->assertJsonPath('runs.0.results.trade_count',0)
-   ->assertHeader('Cache-Control','no-store');
+   ->assertHeader('Cache-Control','no-store, private');
  }
 }

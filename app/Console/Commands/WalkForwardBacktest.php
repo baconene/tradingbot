@@ -29,7 +29,7 @@ final class WalkForwardBacktest extends Command
         // Hypotheses fixed in source before examining test folds. Training selection uses return
         // subject to positive profit, <=10% drawdown and >=10 closed trades.
         foreach([0.0,0.15,0.3] as $minBreakout)
-        foreach([1.0,2.0,INF] as $maxRange)
+        foreach([1.0,2.0,999999.0] as $maxRange)
             $candidateSets[]=['min_breakout_atr'=>$minBreakout,'max_signal_range_atr'=>$maxRange];
         for($fold=0;$fold<4;$fold++){
             $trainEnd=(int)floor($n*(.5+$fold*.1));
