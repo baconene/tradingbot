@@ -37,3 +37,5 @@ Route::get('/api/risk/status', \App\Http\Controllers\RiskStatusController::class
 Route::get('/api/portfolio', \App\Http\Controllers\PortfolioController::class);
 
 Route::get('/api/chart', \App\Http\Controllers\ChartController::class)->name('chart');
+
+Route::get('/api/research/backtests/export', \\App\\Http\\Controllers\\BacktestExportController::class)->middleware('throttle:30,1');

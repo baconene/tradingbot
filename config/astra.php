@@ -8,5 +8,6 @@ return [
     'testnet_url' => 'https://testnet.binance.vision',
     'testnet_api_key' => env('BINANCE_TESTNET_API_KEY', ''),
     'testnet_api_secret' => env('BINANCE_TESTNET_API_SECRET', ''),
+    'research_export_token' => env('ASTRA_RESEARCH_EXPORT_TOKEN', ''),
     'execution_enabled' => false, // Read-only testnet diagnostics; order submission is locked.
 ];
