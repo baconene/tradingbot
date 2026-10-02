@@ -43,6 +43,7 @@ final class OptimizeBacktest extends Command
                 'trade_count'=>$trades,'win_rate_pct'=>$report['win_rate_pct'],
                 'return_pct'=>$report['realized_return_pct'],
                 'max_drawdown_pct'=>$report['max_realized_drawdown_pct'],
+                'profit_factor'=>$report['profit_factor'],'sharpe'=>$report['annualized_hourly_realized_sharpe'],'exit_breakdown'=>$report['exit_breakdown'],
             ],'eligible'=>$trades>=10 && $report['realized_return_pct']>0 && $report['max_realized_drawdown_pct']<=10];
         }
         // Rank only training results; do not optimize against holdout.
@@ -79,6 +80,7 @@ final class OptimizeBacktest extends Command
     {
         return ['trade_count'=>$r['trade_count'],'win_rate_pct'=>$r['win_rate_pct'],
             'realized_return_pct'=>$r['realized_return_pct'],
-            'max_realized_drawdown_pct'=>$r['max_realized_drawdown_pct']];
+            'max_realized_drawdown_pct'=>$r['max_realized_drawdown_pct'],
+            'profit_factor'=>$r['profit_factor'],'sharpe'=>$r['annualized_hourly_realized_sharpe'],'exit_breakdown'=>$r['exit_breakdown']];
     }
 }
