@@ -4,6 +4,7 @@ namespace Tests\Feature;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Tests\TestCase;
 
 final class ResearchTrainingTest extends TestCase
@@ -13,6 +14,7 @@ final class ResearchTrainingTest extends TestCase
     public function test_training_requires_operator_token_and_never_enables_execution(): void
     {
         Cache::forget('astra:research:training:lock');
+        $this->withoutMiddleware(ThrottleRequests::class);
         config()->set('astra.research_training_token','operator-secret');
         config()->set('queue.default','database');
         Queue::fake();

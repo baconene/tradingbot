@@ -16,3 +16,6 @@ The button asks for the operator token, holds it only in the current browser com
 ## Interpretation
 
 The performance curve shows *historical test-period returns across saved experiments*, not a continuously trained AI learning curve. Walk-forward values sum sequential fold returns for visualization and are not compounded. Different datasets and windows make between-run comparison descriptive only. No automatic candidate promotion. Previously examined history is not an independent untouched validation set.
+
+## Live status semantics
+The dashboard polls every five seconds while visible and refreshes on window focus. Each job updates a server-side status before and after its three commands; the UI shows completed stages and a last-updated timestamp, not an invented percent-complete estimate. Within each command there is no granular progress event. The latest walk-forward chart plots chronological per-fold test returns and matching baseline rather than connecting unrelated research experiments. If a job stays queued, verify the Forge daemon and the research queue. If a running stage stops updating for over 35 minutes, inspect worker logs and failed jobs.

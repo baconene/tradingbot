@@ -19,6 +19,8 @@ final class ResearchTrainingController
                 'results'=>json_decode($r->results,true)])->all();
         return response()->json(['mode'=>'research_only','execution_enabled'=>false,
             'training'=>Cache::get('astra:research:training:status',['state'=>'idle']),
+            'server_time'=>now()->toIso8601String(),
+            'latest_research_id'=>$runs[0]['id']??null,
             'runs'=>$runs])->header('Cache-Control','no-store');
     }
 
@@ -33,7 +35,8 @@ final class ResearchTrainingController
         if(!Cache::add('astra:research:training:lock',true,3600))
             return response()->json(['message'=>'Research training already queued or running'],409);
         try {
-            Cache::put('astra:research:training:status',['state'=>'queued','started_at'=>now()->toIso8601String()],3600);
+            Cache::put('astra:research:training:status',['state'=>'queued','started_at'=>now()->toIso8601String(),'updated_at'=>now()->toIso8601String(),
+                'step_index'=>0,'step_total'=>3],3600);
             RunResearchTraining::dispatch()->onQueue('research');
         } catch(\Throwable $e) {
             Cache::forget('astra:research:training:lock');
