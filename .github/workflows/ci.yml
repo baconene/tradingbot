@@ -12,4 +12,8 @@ jobs:
           coverage: none
       - run: composer install --no-interaction --prefer-dist
       - run: php artisan test
+        env:
+          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
       - run: php artisan route:list
+        env:
+          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
