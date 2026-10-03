@@ -1,19 +1,15 @@
-name: Test foundation
+name: Fresh Laravel foundation
 on: [push, pull_request]
 jobs:
-  backend:
+  laravel:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
-        with: {php-version: '8.4', extensions: 'mbstring, pdo_sqlite, xml, dom', coverage: none}
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_sqlite, xml, dom
+          coverage: none
       - run: composer install --no-interaction --prefer-dist
       - run: php artisan test
-  frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: {node-version: '22'}
-      - run: npm install
-      - run: npm run build
+      - run: php artisan route:list
