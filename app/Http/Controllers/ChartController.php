@@ -2,6 +2,7 @@
 namespace App\Http\Controllers;
 
 use App\MarketData\HourlyFeatures;
+use App\Research\MarketStructureSignal;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -10,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 final class ChartController
 {
     /** Read-only paged completed-candle history; includes warmup for point-in-time indicators. */
-    public function __invoke(Request $request, HourlyFeatures $features): JsonResponse
+    public function __invoke(Request $request, HourlyFeatures $features, MarketStructureSignal $structure): JsonResponse
     {
         $before = $request->query('before');
         $query = DB::table('market_candles')->where('symbol', 'BTCUSDT')->where('interval', '1h');
@@ -73,6 +74,7 @@ final class ChartController
             'backtest_data_end' => $run?->data_end,
             'latest_candle_at' => count($points) ? end($points)['time'] : null,
             'execution_enabled' => false,
+            'structure_signal' => $structure->analyze($all,20,2.0),
         ]);
     }
 }

@@ -2,6 +2,11 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 type Point={time:string;open:number;high:number;low:number;close:number;volume:number;ema20:number|null;ema50:number|null;rsi14:number|null;atr14:number|null;previous20High:number|null;relativeVolume:number|null};
 type Marker={time:string;kind:'entry'|'exit';price:number;pnl:number};
+type Structure={state:string;direction:string;entry:number|null;stop:number|null;target:number|null;previous_high:number;previous_low:number;signal_time:number|null;method:string;note:string};
+const structure=ref<Structure|null>(null),leverage=ref(2),rr=ref(2),showLevels=ref(true);
+const adjustedTarget=computed(()=>structure.value?.entry!=null&&structure.value.stop!=null?(structure.value.direction==='long'?structure.value.entry+rr.value*Math.abs(structure.value.entry-structure.value.stop):structure.value.entry-rr.value*Math.abs(structure.value.entry-structure.value.stop)):null);
+const approximateMarginMove=computed(()=>100/leverage.value);
+const structureVisible=computed(()=>structure.value?.state==='confirmed'&&structure.value.signal_time!=null&&visible.value.some(p=>new Date(p.time).getTime()===structure.value!.signal_time));
 const points=ref<Point[]>([]),markers=ref<Marker[]>([]),busy=ref(false),error=ref(''),updated=ref(''),backtestId=ref<number|null>(null),hasMore=ref(false);
 const count=ref(90),end=ref(0),hoverIndex=ref<number|null>(null),drag=ref<{x:number;end:number}|null>(null);
 let timer:ReturnType<typeof setInterval>|undefined;
@@ -15,7 +20,7 @@ const start=computed(()=>Math.max(0,end.value-count.value));
 const visible=computed(()=>points.value.slice(start.value,end.value));
 const latest=computed(()=>points.value.at(-1));
 const hovered=computed(()=>points.value[hoverIndex.value??Math.max(0,end.value-1)]);
-const bounds=computed(()=>{const vals=visible.value.flatMap(p=>[p.low,p.high,p.ema20,p.ema50,p.previous20High].filter((v):v is number=>v!==null));const min=Math.min(...vals),max=Math.max(...vals);const pad=Math.max(1,(max-min)*.08);return {min:Number.isFinite(min)?min-pad:0,max:Number.isFinite(max)?max+pad:1};});
+const bounds=computed(()=>{const vals=visible.value.flatMap(p=>[p.low,p.high,p.ema20,p.ema50,p.previous20High].filter((v):v is number=>v!==null));if(showLevels.value&&structureVisible.value&&structure.value?.entry!=null&&structure.value.stop!=null&&adjustedTarget.value!=null)vals.push(structure.value.entry,structure.value.stop,adjustedTarget.value);const min=Math.min(...vals),max=Math.max(...vals);const pad=Math.max(1,(max-min)*.08);return {min:Number.isFinite(min)?min-pad:0,max:Number.isFinite(max)?max+pad:1};});
 const x=(i:number)=>LEFT+(i+.5)*(RIGHT-LEFT)/Math.max(1,visible.value.length);
 const y=(v:number)=>TOP+(PRICE_BOTTOM-TOP)*(bounds.value.max-v)/Math.max(.0001,bounds.value.max-bounds.value.min);
 const volumeMax=computed(()=>Math.max(1,...visible.value.map(p=>p.volume)));
@@ -33,7 +38,7 @@ async function load(before?:number,replace=false){
   if(replace){points.value=data.points;end.value=points.value.length;}
   else if(before){const existing=new Set(points.value.map(p=>p.time));const older=(data.points as Point[]).filter(p=>!existing.has(p.time));points.value=[...older,...points.value];end.value+=older.length;}
   else{const existing=new Map(points.value.map(p=>[p.time,p]));for(const p of data.points as Point[])existing.set(p.time,p);points.value=[...existing.values()].sort((a,b)=>a.time.localeCompare(b.time));end.value=points.value.length;}
-  markers.value=data.markers;backtestId.value=data.backtest_id;hasMore.value=data.has_more;updated.value=new Date().toLocaleTimeString();error.value='';
+  structure.value=data.structure_signal??null;markers.value=data.markers;backtestId.value=data.backtest_id;hasMore.value=data.has_more;updated.value=new Date().toLocaleTimeString();error.value='';
  }catch(e){error.value='Chart request failed: '+String(e);}finally{busy.value=false;}
 }
 async function older(){if(!hasMore.value||busy.value||!points.value.length)return;await load(Math.floor(new Date(points.value[0].time).getTime()/1000));}
@@ -58,6 +63,8 @@ onUnmounted(()=>{window.removeEventListener('astra:chart-jump',onChartJump);if(t
   <div class="chart-move-controls"><button type="button" :disabled="busy" @click="older" aria-label="Load older candles" title="Load older candles">⇤ <span>Older</span></button><button type="button" @click="jumpBack" aria-label="Move chart backward" title="Move chart backward">‹</button><button type="button" @click="jumpForward" :disabled="atLatest" aria-label="Move chart forward" title="Move chart forward">›</button><button type="button" @click="latestView" :disabled="atLatest" aria-label="Go to latest candles">Latest ↦</button></div>
   <div class="chart-zoom-controls"><span>Visible candles <b>{{visible.length}}</b></span><div role="group" aria-label="Chart zoom"><button type="button" :disabled="count<=20" @click="zoom(-12)" aria-label="Zoom in">− <span>Zoom in</span></button><button type="button" :disabled="count>=220" @click="zoom(12)" aria-label="Zoom out">+ <span>Zoom out</span></button></div></div>
  </div>
+ <div class="structure-settings"><label>Research leverage <select v-model.number="leverage" aria-label="Research leverage"><option v-for="n in 100" :key="n" :value="n">{{n}}×</option></select></label><label>Reward : risk <select v-model.number="rr" aria-label="Reward to risk"><option v-for="n in [1,1.5,2,2.5,3,4,5]" :key="n" :value="n">{{n}} : 1</option></select></label><label class="structure-check"><input v-model="showLevels" type="checkbox"/> Show levels</label></div>
+ <div class="structure-signal"><div><strong>HH / LL structure</strong><span :class="structure?.state==='confirmed'?'profit':'warning'">{{structure?.direction?.toUpperCase()??'NONE'}} · {{structure?.state??'loading'}}</span></div><p>Previous HH {{structure?.previous_high?.toFixed(2)??'—'}} · Previous LL {{structure?.previous_low?.toFixed(2)??'—'}}</p><div class="structure-values"><span>Entry <b>{{structure?.entry?.toFixed(2)??'Awaiting confirmation'}}</b></span><span>Stop <b>{{structure?.stop?.toFixed(2)??'—'}}</b></span><span>Target <b>{{adjustedTarget?.toFixed(2)??'—'}}</b></span></div><small>Illustrative 100% margin adverse move ≈ {{approximateMarginMove.toFixed(2)}}% at {{leverage}}×, before maintenance margin, fees or funding. Not a liquidation estimate. Spot-data research only; no live orders.</small></div>
  <p class="chart-gesture-tip">Swipe horizontally to move through candles · Use − / + to zoom</p>
  <p v-if="error" class="warning" role="alert">{{error}}</p>
  <details class="chart-mobile-details" :open="indicatorsOpen" @toggle="indicatorsOpen=($event.target as HTMLDetailsElement).open"><summary>Indicators <span>EMA 20 · EMA 50 · RSI 14</span></summary><div class="chart-legend"><span class="legend-price">Candles</span><span class="legend-ema20">EMA 20</span><span class="legend-ema50">EMA 50</span><span class="legend-breakout">20-bar breakout</span><span class="legend-entry">▲ Entry</span><span class="legend-exit">▼ Exit</span></div></details>
@@ -68,6 +75,9 @@ onUnmounted(()=>{window.removeEventListener('astra:chart-jump',onChartJump);if(t
    <g v-for="(p,i) in visible" :key="p.time"><line :x1="x(i)" :x2="x(i)" :y1="y(p.high)" :y2="y(p.low)" :stroke="p.close>=p.open?'#7ad6b4':'#e38d87'"/><rect :x="x(i)-Math.max(1,350/visible.length)" :y="Math.min(y(p.open),y(p.close))" :width="Math.max(2,700/visible.length)" :height="Math.max(1,Math.abs(y(p.open)-y(p.close)))" :fill="p.close>=p.open?'#7ad6b4':'#e38d87'"/><rect :x="x(i)-Math.max(1,350/visible.length)" :y="VOL_TOP+VOL_H-p.volume/volumeMax*VOL_H" :width="Math.max(2,700/visible.length)" :height="p.volume/volumeMax*VOL_H" :fill="p.close>=p.open?'#397c71':'#965b61'"/></g>
    <polyline :points="path('ema20')" fill="none" stroke="#e4c278" stroke-width="1.7"/><polyline :points="path('ema50')" fill="none" stroke="#8eb9f3" stroke-width="1.7"/><polyline :points="path('previous20High')" fill="none" stroke="#bd9ee8" stroke-width="1.2" stroke-dasharray="5 4"/>
    <g v-for="(m,i) in visibleMarkers" :key="i"><path :d="m.kind==='entry'?`M ${x(m.index)} ${y(m.price)+5} l -6 11 h 12 Z`:`M ${x(m.index)} ${y(m.price)-5} l -6 -11 h 12 Z`" :fill="m.kind==='entry'?'#64e0bd':'#f5b17e'"><title>{{m.kind}} · {{m.price.toFixed(2)}} · P&amp;L {{m.pnl.toFixed(2)}} USDT</title></path></g>
+   <g v-if="showLevels&&structureVisible&&structure?.entry!=null&&structure.stop!=null&&adjustedTarget!=null">
+    <line v-for="line in [{value:structure.entry,color:'#7ad6b4',label:'ENTRY'},{value:structure.stop,color:'#e38d87',label:'STOP'},{value:adjustedTarget,color:'#e4c278',label:'TP '+rr+':1'}]" :key="line.label" :x1="LEFT" :x2="RIGHT" :y1="y(line.value)" :y2="y(line.value)" :stroke="line.color" stroke-width="2" stroke-dasharray="8 5"/>
+   </g>
    <g v-if="hoverIndex!==null&&hovered"><line :x1="x(hoverIndex-start)" y1="20" :x2="x(hoverIndex-start)" y2="367" stroke="#d6e5e1" stroke-dasharray="4 4" opacity=".8"/><line x1="65" :y1="y(hovered.close)" x2="970" :y2="y(hovered.close)" stroke="#d6e5e1" stroke-dasharray="4 4" opacity=".6"/></g>
    <g v-for="tick in 5" :key="'date'+tick"><text :x="x(Math.min(visible.length-1,Math.floor((tick-1)*(visible.length-1)/4)))" y="391" text-anchor="middle" fill="#91aaa8" font-size="11">{{fmtTime(visible[Math.min(visible.length-1,Math.floor((tick-1)*(visible.length-1)/4))]?.time)}}</text></g>
   </svg>

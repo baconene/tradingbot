@@ -2,17 +2,19 @@
 import {computed,onMounted,ref} from 'vue';
 type Bin={bin:string;count:number;predicted_rate:number;observed_rate:number};
 type Run={id:number;version:string;status:string;created_at:string;metrics:{source_backtest_id:number;training_trades:number;holdout_trades:number;train_win_rate:number;holdout_win_rate:number;brier_score:number;baseline_brier_score:number;calibration_bins:Bin[];limitations:string[];independent_validation?:{trade_count:number;brier_score:number;baseline_brier_score:number;calibration_mae:number;passed:boolean;criteria:Record<string,boolean>;data_start:string;data_end:string};review_history?:{action:string;at:string;scope:string}[]}};
+const signal=ref<{state:string;direction:string;entry:number|null;stop:number|null;target:number|null;previous_high:number;previous_low:number;note:string}|null>(null);
 const runs=ref<Run[]>([]),loading=ref(false),error=ref(''),selected=ref<number|null>(null);
 const current=computed(()=>runs.value.find(r=>r.id===selected.value)??runs.value[0]);
 const percent=(n:number|undefined)=>n==null?'—':(n*100).toFixed(1)+'%';
 async function refresh(){loading.value=true;try{const r=await fetch('/api/research/predictions',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const data=await r.json();runs.value=data.runs??[];error.value='';}catch(e){error.value=String(e);}finally{loading.value=false;}}
-onMounted(()=>void refresh());
+onMounted(()=>{void refresh();void fetch('/api/chart',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(data=>{signal.value=data?.structure_signal??null;}).catch(()=>{});});
 </script>
 <template>
 <section class="panel prediction-lab">
  <div class="panelhead"><div><div class="eyebrow">MILESTONE 5 / OFFLINE MODEL RESEARCH</div><h3>Prediction lab</h3><p class="chart-note">Historical, observation-only probability estimates for profitable closed trades</p></div><button class="chart-refresh" type="button" :disabled="loading" @click="refresh">{{loading?'Loading…':'Refresh'}}</button></div>
  <p class="risk-banner">Model review applies only to paper observation. Even approved models cannot place orders, override risk limits or change the deployed breakout strategy.</p>
  <p v-if="error" class="warning" role="alert">{{error}}</p>
+ <div class="structure-signal"><div><strong>HH / LL signal preview</strong><span>{{signal?.direction?.toUpperCase()??'NONE'}} · {{signal?.state??'unavailable'}}</span></div><div class="structure-values"><span>Entry <b>{{signal?.entry?.toFixed(2)??'Waiting'}}</b></span><span>Stop <b>{{signal?.stop?.toFixed(2)??'—'}}</b></span><span>2:1 target <b>{{signal?.target?.toFixed(2)??'—'}}</b></span></div><small>This structure setup has no calibrated model probability. The model metrics below refer to historical breakout trades, not this new signal.</small></div>
  <div v-if="!runs.length" class="backtest-empty">No trained research model yet. On Forge, run <code>php artisan astra:backtest</code>, then <code>php artisan astra:train-prediction</code>. At least 60 completed trades with valid entry indicators are required.</div>
  <template v-else>
  <div class="training-actions"><label for="model-run">Saved experiment</label><select id="model-run" v-model.number="selected" class="training-token"><option :value="null">Latest</option><option v-for="r in runs" :key="r.id" :value="r.id">#{{r.id}} · {{r.created_at}}</option></select></div>
