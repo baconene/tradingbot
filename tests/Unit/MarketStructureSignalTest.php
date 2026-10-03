@@ -7,8 +7,8 @@ final class MarketStructureSignalTest extends TestCase
     public function test_confirmed_higher_high_higher_low_produces_long_levels(): void
     {
         $candles=[];
-        for($i=0;$i<21;$i++)$candles[]=['open_ms'=>$i*3600000,'high'=>100+$i,'low'=>80+$i,'close'=>90+$i];
-        $candles[20]['close']=122;
+        for($i=0;$i<22;$i++)$candles[]=['open_ms'=>$i*3600000,'high'=>100+$i,'low'=>80+$i,'close'=>90+$i];
+        $candles[21]['close']=122;
         $signal=(new MarketStructureSignal())->analyze($candles,20,2);
         $this->assertSame('confirmed',$signal['state']);
         $this->assertSame('long',$signal['direction']);

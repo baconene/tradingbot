@@ -6,7 +6,7 @@ return new class extends Migration {
  public function up(): void {
   Schema::create('futures_strategy_configs',function(Blueprint $t){
    $t->id();$t->uuid('version')->unique();$t->string('name',100);$t->string('symbol',30)->default('BTCUSDT');
-   $t->string('timeframe',10)->default('1h');$t->string('market','20')->default('usdm_futures');
+   $t->string('timeframe',10)->default('1h');$t->string('market',20)->default('usdm_futures');
    $t->string('status',20)->default('draft');$t->json('parameters');$t->char('parameters_hash',64);
    $t->timestamps();$t->index(['status','created_at']);
   });

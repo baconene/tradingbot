@@ -14,6 +14,7 @@ const token=document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.
 const r=await fetch('/api/futures/configs',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':token},body:JSON.stringify({name:name.value,parameters:form.value})});
 const d=await r.json();if(!r.ok)throw Error(d.message??'Could not save draft');notice.value='Immutable research draft saved. Trading remains locked.';await refresh();
 }catch(e){error.value=String(e);}finally{saving.value=false;}}
+async function copyDraft(){try{await navigator.clipboard.writeText(JSON.stringify({name:name.value,parameters:form.value},null,2));notice.value='Draft JSON copied. Submit it through the authenticated operator API or create a draft using Forge CLI.';error.value='';}catch(e){error.value='Clipboard unavailable: '+String(e);}}
 function useConfig(c:Config){form.value={...c.parameters};name.value=c.name+' (new draft)';notice.value='Loaded as editable copy. Saving creates a new version.';}
 onMounted(()=>{void refresh();timer=setInterval(()=>{if(!document.hidden)void refresh();},30000);});
 onUnmounted(()=>{if(timer)clearInterval(timer);});
@@ -24,7 +25,7 @@ onUnmounted(()=>{if(timer)clearInterval(timer);});
   <div class="panelhead"><div><div class="eyebrow">ASTRA FUTURES V2 / STAGED IMPLEMENTATION</div><h3>Futures terminal</h3><p class="chart-note">Independent futures infrastructure. Existing chart remains spot research until a verified futures feed is connected.</p></div><span class="locked">EXECUTION LOCKED</span></div>
   <div class="terminal-status"><div><small>Futures data</small><strong>{{ready.futures_data?'Imported':'Not connected'}}</strong><span>{{latest??'No verified futures candles'}}</span></div><div><small>Exchange reconciliation</small><strong>{{risk.reconciled?'Recorded':'Unverified'}}</strong><span>Kill latch {{risk.kill_latched?'ON':'OFF'}}</span></div><div><small>Protective orders</small><strong>{{ready.protective_orders?'Verified':'Not certified'}}</strong><span>No live order entry</span></div></div>
   <p class="risk-banner">This terminal is a research workspace, not a live futures account. 100× is a scenario parameter, not an exchange order setting.</p>
-  <div class="terminal-panel-title"><h3>Versioned strategy configuration</h3><small>New saves are immutable drafts</small></div>
+  <div class="terminal-panel-title"><h3>Versioned strategy configuration</h3><small>Saved versions are immutable drafts</small></div>
   <div class="terminal-form">
    <label class="terminal-full">Experiment name<input v-model="name" maxlength="100" placeholder="BTC structure research"/></label>
    <label>Leverage <strong>{{form.leverage}}×</strong><input v-model.number="form.leverage" type="range" min="1" max="100" step="1"/><span>1×–100× research only</span></label>
@@ -40,7 +41,7 @@ onUnmounted(()=>{if(timer)clearInterval(timer);});
   </div>
   <div class="terminal-margin">At {{form.leverage}}×, initial margin is approximately {{marginPct.toFixed(2)}}% of notional. Liquidation may occur before that adverse price move. Leverage never increases the permitted stop-risk budget.</div>
   <p v-if="error" class="warning" role="alert">{{error}}</p><p v-if="notice" class="profit" role="status">{{notice}}</p>
-  <button class="chart-refresh terminal-save" type="button" :disabled="saving||!name.trim()" @click="save">{{saving?'Saving…':'Save new research draft'}}</button>
+  <button class="chart-refresh terminal-save" type="button" :disabled="!name.trim()" @click="copyDraft">Copy research draft JSON</button><p class="training-note">Browser configuration is a preview. Create saved versions using the authenticated operator API or Forge CLI; no secret is stored in the browser.</p>
  </div>
  <aside class="panel terminal-side">
   <div class="panelhead"><h3>Research versions</h3><button class="chart-refresh" :disabled="busy" @click="refresh">Refresh</button></div>
