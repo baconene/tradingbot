@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 final class ResearchOperationsTest extends TestCase {
  use RefreshDatabase;
+ protected function setUp(): void {parent::setUp();$this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);}
  public function test_mutating_operations_fail_closed_without_operator_secret(): void {
   config(['astra.operator_token'=>null]);
   $this->postJson('/api/research/import',['pages'=>1])->assertForbidden();
