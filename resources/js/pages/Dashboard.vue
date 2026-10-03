@@ -5,6 +5,7 @@ type Market={symbol:string;market:string;source:string;stale:boolean;contiguous:
 type Metrics={initial_equity:number;final_equity:number;net_return_pct:number;max_realized_drawdown_pct:number;trades:number;wins:number;losses:number;win_rate_pct:number|null;rr_target:number;average_net_r:number|null;total_fees:number;funding_included:boolean;liquidation_modeled:boolean};
 type Trade={id:number;side:string;signal_ms:number;entry_ms:number;exit_ms:number;entry:number;stop:number;target:number;exit:number;quantity:number;net_pnl:number;fees:number;r_multiple:number;exit_reason:string};
 type Result={run:null|{id:number;symbol:string;strategy:string;parameters:Record<string,number>;metrics:Metrics;bars:number;first_open_ms:number;last_open_ms:number;created_at:string};trades:Trade[];equity_curve:{ms:number;equity:number}[]};
+const operatorToken=ref(''),importPages=ref(2),backtestBars=ref(15000),rr=ref(2),risk=ref(0.005),busy=ref<'import'|'backtest'|null>(null),operationMessage=ref('');
 const market=ref<Market|null>(null),result=ref<Result|null>(null),loading=ref(true),error=ref(''),selected=ref<number|null>(null);
 const frames=computed(()=>market.value?.timeframes??{'1m':[],'5m':[],'15m':[]});
 const metrics=computed(()=>result.value?.run?.metrics??null);
@@ -26,6 +27,20 @@ const latestSetup=computed(()=>{
 });
 let timer:ReturnType<typeof setInterval>|undefined;
 async function refresh(){try{const [m,r]=await Promise.all([fetch('/api/futures/market',{cache:'no-store'}),fetch('/api/research/backtest',{cache:'no-store'})]);if(!m.ok||!r.ok)throw Error('Market or backtest endpoint unavailable');market.value=await m.json() as Market;result.value=await r.json() as Result;error.value='';}catch(e){error.value=String(e);}finally{loading.value=false;}}
+async function runOperation(kind:'import'|'backtest'){
+ if(busy.value)return;
+ busy.value=kind;operationMessage.value='';
+ try{
+  const csrf=document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content??'';
+  const endpoint=kind==='import'?'/api/research/import':'/api/research/run';
+  const body=kind==='import'?{pages:importPages.value}:{bars:backtestBars.value,rr:rr.value,risk:risk.value};
+  const response=await fetch(endpoint,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':csrf,'Authorization':'Bearer '+operatorToken.value},body:JSON.stringify(body)});
+  const data=await response.json();
+  if(!response.ok)throw new Error(data.message??'Research operation failed');
+  operationMessage.value=kind==='import'?('Imported '+data.imported+' candles; observed gaps: '+data.gaps_observed):('Backtest #'+data.run_id+' completed. '+data.trades+' trades.');
+  await refresh();
+ }catch(e){operationMessage.value=String(e);}finally{busy.value=null;}
+}
 function jump(trade:Trade){selected.value=trade.entry_ms;document.querySelector('#charts')?.scrollIntoView({behavior:'smooth'});}
 onMounted(()=>{void refresh();timer=setInterval(()=>{if(!document.hidden)void refresh();},30000);});
 onUnmounted(()=>{if(timer)clearInterval(timer);});
@@ -35,6 +50,18 @@ onUnmounted(()=>{if(timer)clearInterval(timer);});
  <header class="topbar"><div class="brand"><span class="brandmark">A</span><div><span class="eyebrow">ASTRA / BINANCE USDⓈ-M FUTURES</span><h1>Scalping research terminal</h1></div></div><div class="header-right"><span class="pill lock">RESEARCH ONLY</span><span class="pill" :class="market&&!market.stale?'healthy':'stale'">{{market&&!market.stale?'Data current':'Data unavailable / stale'}}</span><button @click="refresh">Refresh</button></div></header>
  <div class="notice">No orders are submitted. Signals are historical research, not live trading advice. Binance Futures access from Forge must be verified.</div>
  <p v-if="error" class="error" role="alert">{{error}}</p>
+ <section class="panel operator-panel" aria-label="Research controls"><div class="section-title"><div><small>UI CONTROLLED · NO FORGE COMMANDS</small><h2>Research controls</h2></div><span class="pill lock">OPERATOR ONLY</span></div>
+  <p class="muted">Enter the research operator token configured once in Forge Environment. The token stays in this page's memory and is not saved in your browser.</p>
+  <div class="operator-grid"><label>Operator token<input v-model="operatorToken" type="password" autocomplete="off" placeholder="Research operator token" /></label>
+   <label>Import pages (up to 2, 1,000 candles each)<select v-model.number="importPages"><option :value="1">1 page</option><option :value="2">2 pages</option></select></label>
+   <button :disabled="!operatorToken||busy!==null" @click="runOperation('import')">{{busy==='import'?'Importing…':'Import futures candles'}}</button>
+  </div>
+  <div class="operator-grid"><label>Backtest candles<select v-model.number="backtestBars"><option :value="900">900</option><option :value="3000">3,000</option><option :value="7500">7,500</option><option :value="15000">15,000</option></select></label>
+   <label>Reward / risk<select v-model.number="rr"><option :value="1">1:1</option><option :value="1.5">1.5:1</option><option :value="2">2:1</option><option :value="3">3:1</option></select></label>
+   <label>Risk per trade<select v-model.number="risk"><option :value="0.0025">0.25%</option><option :value="0.005">0.50%</option><option :value="0.01">1.00%</option></select></label>
+   <button :disabled="!operatorToken||busy!==null" @click="runOperation('backtest')">{{busy==='backtest'?'Backtesting…':'Run backtest'}}</button>
+  </div><p v-if="operationMessage" role="status" class="operation-message">{{operationMessage}}</p>
+ </section>
  <section class="summary">
   <article><small>MARKET</small><strong>{{market?.symbol??'BTCUSDT'}}</strong><span>USDⓈ-M perpetual</span></article>
   <article><small>DATA INTEGRITY</small><strong>{{market?.contiguous?'Contiguous':'Check gaps'}}</strong><span>{{market?.last_candle_ms?when(market.last_candle_ms):'No import yet'}}</span></article>
@@ -52,7 +79,7 @@ onUnmounted(()=>{if(timer)clearInterval(timer);});
   </article>
   <article class="panel"><div class="section-title"><div><small>BACKTEST PERFORMANCE</small><h2>Realized equity</h2></div><span class="pill">{{result?.run?'RUN #'+result.run.id:'NOT RUN'}}</span></div>
    <svg v-if="equityPoints" viewBox="0 0 600 190" class="equity" role="img" aria-label="Historical realized equity curve"><line x1="10" x2="590" y1="175" y2="175" stroke="#52647a"/><polyline :points="equityPoints" stroke="#59d7b1" stroke-width="2.5" fill="none"/></svg>
-   <p v-else class="empty">Run <code>php artisan astra:backtest-scalping</code> after importing sufficient contiguous futures candles.</p>
+   <p v-else class="empty">Use Research Controls above to import candles and run your first backtest.</p>
    <div class="metrics"><div><small>MAX REALIZED DD</small><strong>{{fmt(metrics?.max_realized_drawdown_pct)}}%</strong></div><div><small>AVG NET R</small><strong>{{fmt(metrics?.average_net_r)}}R</strong></div><div><small>FEES</small><strong>{{fmt(metrics?.total_fees)}} USDT</strong></div><div><small>RR TARGET</small><strong>{{fmt(metrics?.rr_target)}}:1</strong></div></div>
   </article>
  </section>

@@ -27,3 +27,6 @@ Binance may reject access from a hosting region; do not circumvent restrictions.
 
 ## Deployment warning
 Previous Forge release may still have obsolete deployment scripts. Replace the Forge UI script with the contents of `deploy/forge-deploy.sh`. Back up the old production database and disable old queue workers/schedules before enabling this release. The migration creates new tables; it does not delete old tables or historical data.
+
+## UI-controlled research operations
+Set a random 32+ character `ASTRA_RESEARCH_OPERATOR_TOKEN` once in Forge's Environment editor. The deployment script migrates the database automatically. After deployment, open the dashboard, enter the token into the Research Controls panel, and click **Import futures candles** or **Run backtest**. The token is held only in the current browser component's memory (never in localStorage or the URL). Do not share the token or expose it in screenshots. Import is limited to two API pages per click to keep HTTP requests bounded; repeat to backfill more history. No Forge terminal commands or scheduled jobs are required for manual testing. For continuous ingestion, Forge scheduler configuration is optional and separate. The operator token is not a trading API key; it only authorizes offline research operations.

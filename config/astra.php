@@ -1,2 +1,2 @@
 <?php
-return ['futures_base_url'=>env('ASTRA_FUTURES_BASE_URL','https://fapi.binance.com'),'symbol'=>env('ASTRA_SYMBOL','BTCUSDT'),'max_candle_age_seconds'=>(int)env('ASTRA_MAX_CANDLE_AGE_SECONDS',180)];
+return ['futures_base_url'=>env('ASTRA_FUTURES_BASE_URL','https://fapi.binance.com'),'symbol'=>env('ASTRA_SYMBOL','BTCUSDT'),'operator_token'=>env('ASTRA_RESEARCH_OPERATOR_TOKEN'),'max_candle_age_seconds'=>(int)env('ASTRA_MAX_CANDLE_AGE_SECONDS',180)];
