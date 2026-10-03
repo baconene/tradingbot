@@ -5,7 +5,7 @@ type Market={symbol:string;market:string;source:string;stale:boolean;contiguous:
 type Metrics={initial_equity:number;final_equity:number;net_return_pct:number;max_realized_drawdown_pct:number;trades:number;wins:number;losses:number;win_rate_pct:number|null;rr_target:number;average_net_r:number|null;total_fees:number;funding_included:boolean;liquidation_modeled:boolean};
 type Trade={id:number;side:string;signal_ms:number;entry_ms:number;exit_ms:number;entry:number;stop:number;target:number;exit:number;quantity:number;net_pnl:number;fees:number;r_multiple:number;exit_reason:string};
 type Result={run:null|{id:number;symbol:string;strategy:string;parameters:Record<string,number>;metrics:Metrics;bars:number;first_open_ms:number;last_open_ms:number;created_at:string};trades:Trade[];equity_curve:{ms:number;equity:number}[]};
-const operatorToken=ref(''),importPages=ref(2),backtestBars=ref(15000),rr=ref(2),risk=ref(0.005),busy=ref<'import'|'backtest'|null>(null),operationMessage=ref('');
+const operatorToken=ref(''),importPages=ref(2),backtestBars=ref(15000),rr=ref(2),risk=ref(0.005),busy=ref<'import'|'backtest'|'live'|null>(null),autoLive=ref(false),liveStatus=ref('Not started'),operationMessage=ref('');
 const market=ref<Market|null>(null),result=ref<Result|null>(null),loading=ref(true),error=ref(''),selected=ref<number|null>(null);
 const frames=computed(()=>market.value?.timeframes??{'1m':[],'5m':[],'15m':[]});
 const metrics=computed(()=>result.value?.run?.metrics??null);
@@ -26,24 +26,33 @@ const latestSetup=computed(()=>{
  return {side,signal_ms:s.open_ms,entry_reference:s.close,stop,target:s.close+(side==='LONG'?1:-1)*Math.abs(s.close-stop)*2};
 });
 let timer:ReturnType<typeof setInterval>|undefined;
+let liveTimer:ReturnType<typeof setInterval>|undefined;
+function toggleLive(){
+ if(autoLive.value){autoLive.value=false;if(liveTimer)clearInterval(liveTimer);liveTimer=undefined;liveStatus.value='Auto-cycle stopped';return;}
+ if(!operatorToken.value){liveStatus.value='Enter the operator token first';return;}
+ autoLive.value=true;liveStatus.value='Auto-cycle enabled while this tab remains open';
+ void runOperation('live');
+ liveTimer=setInterval(()=>{if(autoLive.value&&!document.hidden&&!busy.value)void runOperation('live');},90000);
+}
 async function refresh(){try{const [m,r]=await Promise.all([fetch('/api/futures/market',{cache:'no-store'}),fetch('/api/research/backtest',{cache:'no-store'})]);if(!m.ok||!r.ok)throw Error('Market or backtest endpoint unavailable');market.value=await m.json() as Market;result.value=await r.json() as Result;error.value='';}catch(e){error.value=String(e);}finally{loading.value=false;}}
-async function runOperation(kind:'import'|'backtest'){
+async function runOperation(kind:'import'|'backtest'|'live'){
  if(busy.value)return;
  busy.value=kind;operationMessage.value='';
  try{
   const csrf=document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content??'';
-  const endpoint=kind==='import'?'/api/research/import':'/api/research/run';
-  const body=kind==='import'?{pages:importPages.value}:{bars:backtestBars.value,rr:rr.value,risk:risk.value};
+  const endpoint=kind==='import'?'/api/research/import':kind==='live'?'/api/research/live-backtest':'/api/research/run';
+  const body=kind==='import'?{pages:importPages.value}:kind==='live'?{pages:importPages.value,bars:backtestBars.value,rr:rr.value,risk:risk.value}:{bars:backtestBars.value,rr:rr.value,risk:risk.value};
   const response=await fetch(endpoint,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':csrf,'Authorization':'Bearer '+operatorToken.value},body:JSON.stringify(body)});
   const data=await response.json();
-  if(!response.ok)throw new Error(data.message??'Research operation failed');
-  operationMessage.value=kind==='import'?('Imported '+data.imported+' candles; observed gaps: '+data.gaps_observed):('Backtest #'+data.run_id+' completed. '+data.trades+' trades.');
+  if(!response.ok)throw new Error((data.message??'Research operation failed')+(data.available_candles!=null?' Available: '+data.available_candles+' candles.':''));
+  operationMessage.value=kind==='import'?('Imported '+data.imported+' candles; observed gaps: '+data.gaps_observed):kind==='live'?(data.message??('Synced '+data.import.imported+' new candles. Backtest #'+data.run_id+' completed.')):('Backtest #'+data.run_id+' completed. '+data.trades+' trades.');
+  if(kind==='live')liveStatus.value='Last successful cycle: '+new Date().toLocaleTimeString()+' · '+(data.status==='unchanged'?'No new candles':'Run #'+data.run_id);
   await refresh();
- }catch(e){operationMessage.value=String(e);}finally{busy.value=null;}
+ }catch(e){operationMessage.value=String(e);if(kind==='live'){liveStatus.value='Cycle failed: '+String(e);autoLive.value=false;}}finally{busy.value=null;}
 }
 function jump(trade:Trade){selected.value=trade.entry_ms;document.querySelector('#charts')?.scrollIntoView({behavior:'smooth'});}
 onMounted(()=>{void refresh();timer=setInterval(()=>{if(!document.hidden)void refresh();},30000);});
-onUnmounted(()=>{if(timer)clearInterval(timer);});
+onUnmounted(()=>{if(timer)clearInterval(timer);if(liveTimer)clearInterval(liveTimer);});
 </script>
 <template>
 <main class="shell">
@@ -60,7 +69,7 @@ onUnmounted(()=>{if(timer)clearInterval(timer);});
    <label>Reward / risk<select v-model.number="rr"><option :value="1">1:1</option><option :value="1.5">1.5:1</option><option :value="2">2:1</option><option :value="3">3:1</option></select></label>
    <label>Risk per trade<select v-model.number="risk"><option :value="0.0025">0.25%</option><option :value="0.005">0.50%</option><option :value="0.01">1.00%</option></select></label>
    <button :disabled="!operatorToken||busy!==null" @click="runOperation('backtest')">{{busy==='backtest'?'Backtesting…':'Run backtest'}}</button>
-  </div><p v-if="operationMessage" role="status" class="operation-message">{{operationMessage}}</p>
+  </div><div class="live-controls"><div><strong>Rolling Binance Futures backtest</strong><p class="muted">Sync newly closed 1m candles, rerun the 5m/15m 2R strategy, and refresh the ledger. Auto-cycle runs every 90 seconds while this tab is open; it stops on errors or when the tab is closed.</p><small>{{liveStatus}}</small></div><button :disabled="!operatorToken||busy!==null" @click="runOperation('live')">{{busy==='live'?'Syncing & testing…':'Sync & backtest now'}}</button><button :disabled="!operatorToken" @click="toggleLive">{{autoLive?'Stop auto-cycle':'Start auto-cycle'}}</button></div><p v-if="operationMessage" role="status" class="operation-message">{{operationMessage}}</p>
  </section>
  <section class="summary">
   <article><small>MARKET</small><strong>{{market?.symbol??'BTCUSDT'}}</strong><span>USDⓈ-M perpetual</span></article>

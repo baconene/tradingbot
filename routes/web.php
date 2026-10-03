@@ -7,3 +7,4 @@ Route::get('/api/research/backtest',[FuturesResearchController::class,'results']
 
 Route::post('/api/research/import',[\App\Http\Controllers\ResearchOperationsController::class,'import'])->middleware(['research.operator','throttle:4,1']);
 Route::post('/api/research/run',[\App\Http\Controllers\ResearchOperationsController::class,'backtest'])->middleware(['research.operator','throttle:2,1']);
+Route::post('/api/research/live-backtest',[\App\Http\Controllers\ResearchOperationsController::class,'liveBacktest'])->middleware(['research.operator','throttle:2,1']);

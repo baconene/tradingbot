@@ -11,6 +11,7 @@ final class ResearchOperationsTest extends TestCase {
   config(['astra.operator_token'=>null]);
   $this->postJson('/api/research/import',['pages'=>1])->assertForbidden();
   $this->postJson('/api/research/run',['bars'=>900,'rr'=>2,'risk'=>0.005])->assertForbidden();
+  $this->postJson('/api/research/live-backtest',['pages'=>1,'bars'=>900,'rr'=>2,'risk'=>0.005])->assertForbidden();
   $this->assertSame(0,DB::table('futures_candles')->count());
  }
  public function test_invalid_token_and_invalid_input_are_rejected(): void {
@@ -18,6 +19,18 @@ final class ResearchOperationsTest extends TestCase {
   $this->withToken(str_repeat('z',40))->postJson('/api/research/import',['pages'=>1])->assertForbidden();
   $this->withToken(str_repeat('x',40))->postJson('/api/research/import',['pages'=>100])->assertUnprocessable();
   $this->withToken(str_repeat('x',40))->postJson('/api/research/run',['bars'=>900,'rr'=>0,'risk'=>0.005])->assertUnprocessable();
+ }
+ public function test_live_cycle_reports_insufficient_data_without_fabricating_results(): void {
+  config(['astra.operator_token'=>str_repeat('x',40)]);
+  Http::fake(['*/fapi/v1/klines*'=>Http::response([],200)]);
+  $this->withToken(str_repeat('x',40))->postJson('/api/research/live-backtest',
+   ['pages'=>1,'bars'=>900,'rr'=>2,'risk'=>0.005])->assertStatus(422)->assertJsonPath('available_candles',0);
+  $this->assertSame(0,DB::table('research_backtests')->count());
+ }
+ public function test_live_cycle_rejects_invalid_risk(): void {
+  config(['astra.operator_token'=>str_repeat('x',40)]);
+  $this->withToken(str_repeat('x',40))->postJson('/api/research/live-backtest',
+   ['pages'=>1,'bars'=>900,'rr'=>2,'risk'=>0.2])->assertUnprocessable();
  }
  public function test_authenticated_browser_imports_completed_futures_candles(): void {
   config(['astra.operator_token'=>str_repeat('x',40)]);
