@@ -1,28 +1,29 @@
-# Astra — clean Laravel foundation
+# Astra Futures research — phases 1–3
+Laravel 13 + Inertia/Vue 3. **Research only: no authenticated trading endpoints, exchange credentials, or order submission.**
 
-This repository was deliberately reset to a minimal Laravel 13 application **before** implementing the proposed futures architecture.
+## Implemented
+- Public Binance USDⓈ-M 1m klines importer (completed candles only), paginated with gaps reported
+- 1m/5m/15m charts, EMA20/50, RSI14, ATR14, previous 20 highs/lows
+- Offline 5m breakout / 15m EMA50 confirmation backtest. Next 1m open entries; same-bar stop before target; fees and slippage; capped risk and notional
+- Stored immutable run metrics, simulated trades and realized equity curve. Actual win rate is blank until a run exists
+- Responsive Vue dashboard with synchronized chart timestamps and backtest ledger
 
-## What is included
-- Laravel application bootstrap, a responsive standalone welcome page, default service provider and configuration
-- A single `GET /` homepage and Laravel's built-in `GET /up` health endpoint
-- Minimal PHP unit/feature tests, GitHub Actions CI and a Forge deployment script
-- Existing `composer.lock` retained for reproducible installation. It still includes previously installed but **unused** Inertia dependencies; dependency cleanup can occur in a dedicated Composer lockfile update.
-
-## What was removed
-All previous Astra strategy, chart, prediction, risk, execution, futures, market-data, job, migration, research and frontend implementation files. No trading endpoints or exchange order capabilities remain. No Python model service is included.
-
-## Start locally
+## Local
 ```bash
 cp .env.example .env
-composer install
+composer install && npm ci
 php artisan key:generate
+touch database/database.sqlite
+php artisan migrate
+php artisan astra:sync-futures --pages=20
+php artisan astra:backtest-scalping --bars=15000 --rr=2
+npm run build
 php artisan serve
-php artisan test
 ```
+If using PostgreSQL on Forge, configure DB_CONNECTION/host/user/password in Forge. Install Node 22 and configure Forge's deployment script to match `deploy/forge-deploy.sh`. Configure Forge scheduler to run `php artisan schedule:run` every minute. Do not expose the backtest CLI through an unauthenticated public POST endpoint.
 
-The welcome page needs no database. SQLite is the local default; create `database/database.sqlite` if you later add migrations.
+## Data limitations
+Binance may reject access from a hosting region; do not circumvent restrictions. Import at least 900 **contiguous** completed 1m candles. For useful backtests import many days and validate missing periods. Missing 1m candles prevent backtesting rather than being filled. No futures funding, mark-price liquidation, spread order book, out-of-sample validation, ML predictions or live execution in this release. Current 2R breakout is an experimental baseline, not a proven strategy. Imported historical candles are fetched from the public Futures API; the previous Spot API keys are not required.
 
-## Important deployment and data notice
-**Deleting tracked migrations does not delete existing Forge production database tables or data.** This reset intentionally does not run destructive database commands. Back up the existing Forge database before a later schema rebuild; decide separately whether to archive or drop legacy tables. Review old Forge scheduler entries, queue daemons and environment variables manually: removing source code does not automatically disable external processes or revoke exchange API keys.
-
-The existing Forge URL will display the fresh welcome page only after the new commit passes CI and the site deploys the new release. Trading stays disabled.
+## Deployment warning
+Previous Forge release may still have obsolete deployment scripts. Replace the Forge UI script with the contents of `deploy/forge-deploy.sh`. Back up the old production database and disable old queue workers/schedules before enabling this release. The migration creates new tables; it does not delete old tables or historical data.
