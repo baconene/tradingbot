@@ -1,5 +1,6 @@
 <?php
 return [
+    'futures_config_token' => env('ASTRA_FUTURES_CONFIG_TOKEN'),
     'symbol' => 'BTCUSDT',
     'interval' => '1h',
     'market_data_url' => env('ASTRA_MARKET_DATA_URL', 'https://api.binance.com'),

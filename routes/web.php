@@ -49,3 +49,8 @@ Route::post('/api/risk/shadow-evaluate', \App\Http\Controllers\ShadowRiskControl
 
 // Observation-only historical model research; no inference or approval mutation endpoint.
 Route::get('/api/research/predictions', \App\Http\Controllers\PredictionResearchController::class)->middleware('throttle:30,1');
+
+// Futures V2: read-only readiness and immutable research drafts; no exchange order routes.
+Route::get('/api/futures/terminal', [\App\Http\Controllers\FuturesTerminalController::class,'__invoke'])->middleware('throttle:30,1');
+// Operator authentication is mandatory for configuration mutation; token stored only in Forge environment.
+Route::post('/api/futures/configs', [\App\Http\Controllers\FuturesTerminalController::class,'create'])->middleware([\App\Http\Middleware\RequireFuturesOperator::class,'throttle:5,1']);
