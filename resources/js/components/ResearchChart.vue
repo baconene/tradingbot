@@ -5,6 +5,11 @@ type Marker={time:string;kind:'entry'|'exit';price:number;pnl:number};
 const points=ref<Point[]>([]),markers=ref<Marker[]>([]),busy=ref(false),error=ref(''),updated=ref(''),backtestId=ref<number|null>(null),hasMore=ref(false);
 const count=ref(90),end=ref(0),hoverIndex=ref<number|null>(null),drag=ref<{x:number;end:number}|null>(null);
 let timer:ReturnType<typeof setInterval>|undefined;
+const indicatorsOpen=ref(false),tradesOpen=ref(false);
+const atLatest=computed(()=>end.value>=points.value.length);
+function zoom(delta:number){count.value=Math.max(20,Math.min(220,count.value+delta));end.value=Math.max(Math.min(points.value.length,end.value),Math.min(count.value,points.value.length));}
+function jumpBack(){void pan(-Math.max(8,Math.floor(count.value/2)));}
+function jumpForward(){void pan(Math.max(8,Math.floor(count.value/2)));}
 const W=1000,LEFT=65,RIGHT=970,TOP=20,PRICE_BOTTOM=275,VOL_TOP=305,VOL_H=62;
 const start=computed(()=>Math.max(0,end.value-count.value));
 const visible=computed(()=>points.value.slice(start.value,end.value));
@@ -33,22 +38,30 @@ async function load(before?:number,replace=false){
 }
 async function older(){if(!hasMore.value||busy.value||!points.value.length)return;await load(Math.floor(new Date(points.value[0].time).getTime()/1000));}
 async function pan(delta:number){if(delta<0&&end.value-count.value+delta<15&&hasMore.value)await older();end.value=Math.max(Math.min(points.value.length,end.value+delta),Math.min(count.value,points.value.length));hoverIndex.value=null;}
-function wheel(e:WheelEvent){e.preventDefault();if(e.ctrlKey||e.metaKey){count.value=Math.max(25,Math.min(220,count.value+(e.deltaY>0?12:-12)));end.value=Math.max(Math.min(points.value.length,end.value),Math.min(count.value,points.value.length));}else void pan(e.deltaY>0?-12:12);}
+function wheel(e:WheelEvent){e.preventDefault();if(e.ctrlKey||e.metaKey){zoom(e.deltaY>0?12:-12);}else void pan(e.deltaY>0?-12:12);}
 function down(e:PointerEvent){(e.currentTarget as SVGElement).setPointerCapture(e.pointerId);drag.value={x:e.clientX,end:end.value};}
 function move(e:PointerEvent){const rect=(e.currentTarget as SVGElement).getBoundingClientRect();if(drag.value){const dx=(e.clientX-drag.value.x)/rect.width*count.value;const next=Math.round(drag.value.end-dx);end.value=Math.max(Math.min(points.value.length,next),Math.min(count.value,points.value.length));return;}const pos=(e.clientX-rect.left)/rect.width*W;const i=Math.floor((pos-LEFT)/(RIGHT-LEFT)*visible.value.length);hoverIndex.value=start.value+Math.max(0,Math.min(visible.value.length-1,i));}
 function up(){const nearLeft=end.value-count.value<15;drag.value=null;if(nearLeft&&hasMore.value)void older();}
 async function jump(marker:Marker){const at=points.value.findIndex(p=>p.time===marker.time);if(at>=0){end.value=Math.min(points.value.length,at+Math.floor(count.value/2));return;}await load(Math.floor(new Date(marker.time).getTime()/1000)+Math.floor(count.value/2)*3600,true);const index=points.value.findIndex(p=>p.time===marker.time);if(index>=0)end.value=Math.min(points.value.length,index+Math.floor(count.value/2));}
 function latestView(){end.value=points.value.length;hoverIndex.value=null;}
 function onChartJump(event:Event){const time=(event as CustomEvent<string>).detail;if(time)void jump({time,kind:'entry',price:0,pnl:0});}
-onMounted(()=>{window.addEventListener('astra:chart-jump',onChartJump);void load(undefined,true);timer=setInterval(()=>{if(!drag.value&&end.value===points.value.length)void load();},60000);});
+onMounted(()=>{if(window.matchMedia('(max-width: 700px)').matches)count.value=36;window.addEventListener('astra:chart-jump',onChartJump);void load(undefined,true);timer=setInterval(()=>{if(!drag.value&&end.value===points.value.length)void load();},60000);});
 onUnmounted(()=>{window.removeEventListener('astra:chart-jump',onChartJump);if(timer)clearInterval(timer);});
 </script>
 <template>
 <section class="panel astra-chart">
- <div class="panelhead"><div><h3>BTCUSDT <span class="chart-timeframe">1H</span> · Research chart</h3><p class="chart-note">Drag to pan · scroll to move · Ctrl + scroll to zoom · on mobile, swipe the chart or use Older / Latest</p></div><div class="chart-toolbar"><button class="chart-refresh" type="button" :disabled="busy" @click="older">← Older</button><button class="chart-refresh" type="button" @click="count=Math.max(25,count-20)">＋</button><button class="chart-refresh" type="button" @click="count=Math.min(220,count+20)">－</button><button class="chart-refresh" type="button" @click="latestView">Latest</button><button class="chart-refresh" type="button" :disabled="busy" @click="load(undefined,true)">{{busy?'Loading…':'Refresh'}}</button></div></div>
+ <div class="chart-header">
+  <div class="chart-heading"><div class="eyebrow">MARKET RESEARCH / BTCUSDT</div><h3>BTC / USDT <span class="chart-timeframe">1H</span></h3><div class="chart-last-price">{{latest?.close.toLocaleString('en-US',{maximumFractionDigits:2})??'—'}} <small>USDT · last completed close</small></div></div>
+  <button class="chart-refresh chart-sync" type="button" :disabled="busy" @click="load(undefined,true)" :aria-label="busy?'Refreshing chart':'Refresh chart'"><span aria-hidden="true">↻</span> {{busy?'Loading':'Refresh'}}</button>
+ </div>
+ <div class="chart-mobile-toolbar" role="group" aria-label="Chart navigation">
+  <div class="chart-move-controls"><button type="button" :disabled="busy" @click="older" aria-label="Load older candles" title="Load older candles">⇤ <span>Older</span></button><button type="button" @click="jumpBack" aria-label="Move chart backward" title="Move chart backward">‹</button><button type="button" @click="jumpForward" :disabled="atLatest" aria-label="Move chart forward" title="Move chart forward">›</button><button type="button" @click="latestView" :disabled="atLatest" aria-label="Go to latest candles">Latest ↦</button></div>
+  <div class="chart-zoom-controls"><span>Visible candles <b>{{visible.length}}</b></span><div role="group" aria-label="Chart zoom"><button type="button" :disabled="count<=20" @click="zoom(-12)" aria-label="Zoom in">− <span>Zoom in</span></button><button type="button" :disabled="count>=220" @click="zoom(12)" aria-label="Zoom out">+ <span>Zoom out</span></button></div></div>
+ </div>
+ <p class="chart-gesture-tip">Swipe horizontally to move through candles · Use − / + to zoom</p>
  <p v-if="error" class="warning" role="alert">{{error}}</p>
- <div class="chart-legend"><span class="legend-price">Candles</span><span class="legend-ema20">EMA 20</span><span class="legend-ema50">EMA 50</span><span class="legend-breakout">20-bar breakout</span><span class="legend-entry">▲ Entry</span><span class="legend-exit">▼ Exit</span></div>
- <div v-if="entries.length" class="chart-trades"><span>Backtest trades ({{entries.length}}):</span><button v-for="(m,i) in entries.slice(0,150)" :key="i" class="chart-trade" type="button" @click="jump(m)">{{fmtTime(m.time)}} · {{m.pnl>=0?'+':''}}{{m.pnl.toFixed(2)}} USDT</button></div>
+ <details class="chart-mobile-details" :open="indicatorsOpen" @toggle="indicatorsOpen=($event.target as HTMLDetailsElement).open"><summary>Indicators <span>EMA 20 · EMA 50 · RSI 14</span></summary><div class="chart-legend"><span class="legend-price">Candles</span><span class="legend-ema20">EMA 20</span><span class="legend-ema50">EMA 50</span><span class="legend-breakout">20-bar breakout</span><span class="legend-entry">▲ Entry</span><span class="legend-exit">▼ Exit</span></div></details>
+ <details v-if="entries.length" class="chart-mobile-details chart-trade-details" :open="tradesOpen" @toggle="tradesOpen=($event.target as HTMLDetailsElement).open"><summary>Backtest entries <span>{{entries.length}} markers · tap to jump</span></summary><div class="chart-trades"><button v-for="(m,i) in entries.slice(0,150)" :key="i" class="chart-trade" type="button" @click="jump(m)">{{fmtTime(m.time)}} · {{m.pnl>=0?'+':''}}{{m.pnl.toFixed(2)}} USDT</button></div></details>
  <div v-if="visible.length" class="chart-viewport">
   <svg viewBox="0 0 1000 400" role="img" aria-label="Interactive historical BTCUSDT candlestick chart with draggable timeline, zoom and backtest markers" @wheel.prevent="wheel" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up" @lostpointercapture="up" @pointerleave="hoverIndex=null">
    <g v-for="tick in 5" :key="tick"><line :x1="LEFT" :y1="TOP+(tick-1)*63.75" :x2="RIGHT" :y2="TOP+(tick-1)*63.75" stroke="#2b4148" stroke-dasharray="3 5"/><text x="2" :y="TOP+4+(tick-1)*63.75" fill="#9ab6b5" font-size="11">{{(bounds.max-(tick-1)*(bounds.max-bounds.min)/4).toFixed(0)}}</text></g>
