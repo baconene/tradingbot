@@ -16,3 +16,81 @@
 .astra-nav{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0 12px;padding:7px;border:1px solid #30464b;border-radius:14px;background:#101b23}.astra-nav button{flex:1;min-width:130px;border:1px solid transparent;border-radius:9px;background:transparent;color:#9db9b4;padding:13px 15px;font:600 13px 'DM Sans',sans-serif;cursor:pointer}.astra-nav button.active{background:#24443e;color:#c9f5e5;border-color:#568d78}.astra-nav button:focus-visible,.chart-refresh:focus-visible{outline:2px solid #7ad6b4;outline-offset:2px}.training-run-head button{flex-shrink:0}.risk-layout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:18px}.risk-layout .panel{min-width:0}.risk-eval-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.risk-eval-form label{display:grid;gap:6px;color:#a5bcb7;font-size:12px}.risk-eval-form input{width:100%;padding:10px;background:#0b1720;color:#e6f1f0;border:1px solid #36534e;border-radius:8px}.risk-eval-form button{grid-column:1/-1}.risk-banner{padding:14px;border:1px solid #655139;border-radius:10px;background:#28231e;color:#f1c99a;font-size:13px}.risk-audit{display:grid;gap:8px}.risk-audit>div{display:flex;justify-content:space-between;gap:14px;border-bottom:1px solid #30464b;padding:10px 0;font-size:13px}@media(max-width:800px){.risk-layout{grid-template-columns:1fr}.astra-nav button{min-width:calc(50% - 8px)}}
 
 .prediction-lab{margin-top:18px}.prediction-bins{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:18px 0}.prediction-bin{padding:16px;border:1px solid #30464b;background:#101b23;border-radius:12px}.prediction-bin small{font-size:11px;color:#9db9b4}.prediction-track{height:8px;margin:12px 0;background:#283940;border-radius:8px;overflow:hidden}.prediction-track>div{height:100%;background:#7ad6b4}.prediction-track.observed>div{background:#a6a0c6}.prediction-details{margin-top:20px;color:#a5bcb7;font-size:13px}.prediction-details summary{cursor:pointer;color:#e6f1f0}
+
+/* Mobile-first overrides: preserve desktop density while preventing page-wide overflow. */
+html{min-width:0;overflow-x:hidden;-webkit-text-size-adjust:100%}
+body,#app,.shell{min-width:0;max-width:100%}
+.panel,.metrics article,.panels>article,.risk-layout>article{min-width:0}
+button,input,select{font:inherit}
+button{touch-action:manipulation}
+@media(max-width:800px){
+ .shell{padding:18px 14px 28px}
+ .top{gap:12px;align-items:center}
+ .top .eyebrow{font-size:9px;letter-spacing:.11em}
+ .top h1{font-size:22px;margin:5px 0}
+ .tag{font-size:9px;letter-spacing:0;padding:8px 10px;white-space:nowrap}
+ .astra-nav{display:flex;flex-wrap:nowrap;gap:5px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:none;margin:16px -14px;padding:8px 14px;border-radius:0;border-left:0;border-right:0;position:sticky;top:0;z-index:20;background:#0e1b23f5;backdrop-filter:blur(12px)}
+ .astra-nav::-webkit-scrollbar{display:none}
+ .astra-nav button{flex:0 0 auto;min-width:auto;min-height:44px;white-space:nowrap;scroll-snap-align:start;padding:11px 14px;font-size:12px}
+ .hero{margin:16px 0;padding:22px;border-radius:16px}
+ .hero h2{font-size:clamp(27px,8vw,40px)}
+ .metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ .metrics article,.panel{padding:16px;border-radius:14px}
+ .metrics strong{font-size:clamp(19px,5vw,27px);overflow-wrap:anywhere;margin:12px 0 4px}
+ .metrics strong small{font-size:11px}
+ .panelhead{align-items:flex-start;gap:12px;flex-wrap:wrap}
+ .panelhead>div{min-width:0;flex:1 1 170px}
+ .panelhead .chart-refresh{min-height:44px}
+ .panels,.risk-layout{grid-template-columns:minmax(0,1fr);gap:12px}
+ .status,.risk-audit>div{align-items:flex-start;overflow-wrap:anywhere}
+ .status>*:last-child,.risk-audit>div>*:last-child{text-align:right;min-width:0}
+ .chart-toolbar{width:100%;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
+ .chart-toolbar .chart-refresh{min-width:0;min-height:44px;padding:9px 4px;font-size:11px}
+ .chart-viewport{overflow:hidden;touch-action:pan-y}
+ .chart-viewport svg{min-width:0;width:100%;height:auto;min-height:0;touch-action:none}
+ .chart-rsi svg{min-width:0;width:100%}
+ .chart-readout{gap:6px 12px;line-height:1.5}
+ .chart-trades{scrollbar-width:thin}
+ .backtest-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .backtest-stats>div{padding:12px;min-width:0}
+ .backtest-stats strong{font-size:17px;overflow-wrap:anywhere}
+ .backtest-stats>div:last-child{grid-column:1/-1}
+ .backtest-controls select{min-height:44px}
+ .backtest-table-wrap{overflow:visible}
+ .backtest-table,.backtest-table tbody{display:block;width:100%;white-space:normal}
+ .backtest-table thead{display:none}
+ .backtest-table tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 12px;margin:0 0 12px;padding:12px;background:#101b23;border:1px solid #30464b;border-radius:12px}
+ .backtest-table td{display:flex;flex-direction:column;gap:5px;min-width:0;overflow-wrap:anywhere;padding:9px 0;font-size:12px;border-bottom:1px solid #283940}
+ .backtest-table td::before{content:attr(data-label);font-size:10px;color:#9db9b4;font-weight:600;letter-spacing:.03em}
+ .backtest-table td:first-child{grid-column:1/-1;font-weight:700;font-size:15px}
+ .backtest-table td:nth-last-child(2){font-weight:700}
+ .backtest-table td:last-child{grid-column:1/-1;display:block;border:0;padding-bottom:0}
+ .backtest-table td:last-child::before{display:block;margin-bottom:8px}
+ .backtest-table td:last-child .chart-trade{min-height:44px;min-width:90px;margin-right:8px}
+ .training-actions{align-items:stretch}
+ .training-token{width:100%;min-width:0;min-height:44px;font-size:16px}
+ .training-actions>.chart-refresh{min-height:44px}
+ .training-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .training-stat{padding:12px;min-width:0}
+ .training-stat strong{font-size:19px;overflow-wrap:anywhere}
+ .training-grid>.training-stat:last-child:nth-child(odd){grid-column:1/-1}
+ .training-curve{width:100%;max-width:100%;display:block}
+ .training-folds,.prediction-bins{grid-template-columns:minmax(0,1fr)}
+ .training-run{padding:12px}
+ .risk-eval-form{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ .risk-eval-form input{font-size:16px;min-width:0;min-height:44px}
+ .risk-eval-form label{min-width:0;overflow-wrap:anywhere}
+ .prediction-lab .training-actions{display:flex;flex-direction:column;align-items:stretch}
+ .risk-banner,.training-note,.chart-note,.backtest-meta{overflow-wrap:anywhere}
+}
+@media(max-width:380px){
+ .shell{padding:12px 10px 24px}
+ .astra-nav{margin-left:-10px;margin-right:-10px;padding-left:10px;padding-right:10px}
+ .tag{max-width:142px;white-space:normal;text-align:center}
+ .metrics{gap:8px}
+ .metrics article,.panel{padding:12px}
+ .chart-toolbar{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .risk-eval-form{grid-template-columns:minmax(0,1fr)}
+ .backtest-table tr{gap:0 8px}
+}
+@media(prefers-reduced-motion:reduce){.astra-nav{scroll-behavior:auto}*{scroll-behavior:auto!important;transition-duration:.01ms!important}}
